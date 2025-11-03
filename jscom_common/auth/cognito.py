@@ -41,9 +41,7 @@ def get_jwks(
         if not cognito_user_pool_id:
             raise ValueError("COGNITO_USER_POOL_ID environment variable or user_pool_id parameter is required")
 
-        jwks_url = (
-            f"https://cognito-idp.{cognito_region}.amazonaws.com/" f"{cognito_user_pool_id}/.well-known/jwks.json"
-        )
+        jwks_url = f"https://cognito-idp.{cognito_region}.amazonaws.com/{cognito_user_pool_id}/.well-known/jwks.json"
         logger.info(f"Fetching JWKS from {jwks_url}")
         response = requests.get(jwks_url, timeout=10)
         response.raise_for_status()
