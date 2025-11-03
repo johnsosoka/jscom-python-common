@@ -198,7 +198,7 @@ poetry run pytest --cov=jscom_common --cov-fail-under=80
 
 ## Release Process
 
-Releases are fully automated via GitHub Actions workflow. The workflow ensures all CI checks pass, creates a PR with version updates, waits for checks, merges the PR, and creates the release.
+Releases use a two-stage GitHub Actions workflow that requires manual approval. The **Release Preparation** workflow creates a PR with version updates, then the **Release Finalization** workflow (triggered after PR merge) creates the tag and GitHub Release after manual approval via GitHub Environments.
 
 ### Pre-Release Checklist
 
@@ -237,16 +237,30 @@ Before triggering a release:
    git push origin main
    ```
 
-4. **Trigger Release Workflow**
-   - Navigate to: [GitHub Actions → Release Workflow](https://github.com/johnsosoka/jscom-python-common/actions/workflows/release.yml)
+4. **Trigger Release Preparation Workflow**
+   - Navigate to: [GitHub Actions → Release Preparation](https://github.com/johnsosoka/jscom-python-common/actions/workflows/release-prep.yml)
    - Click "Run workflow"
    - Enter version number (e.g., `0.2.0` - no 'v' prefix)
    - Leave release notes empty (will extract from CHANGELOG)
    - Click "Run workflow"
 
+5. **Review and Merge Release PR**
+   - The workflow creates a PR with version updates
+   - Review the PR (no CI checks will run - this is expected)
+   - Merge the PR when ready (squash merge)
+
+6. **Approve Release Deployment**
+   - The Release Finalization workflow triggers automatically
+   - Navigate to the workflow run in GitHub Actions
+   - Click "Review deployments"
+   - Approve the `release` environment
+   - Tag and GitHub Release will be created automatically
+
 ### What the Workflow Does
 
-The automated workflow performs these steps:
+The release process consists of two workflows:
+
+#### Workflow 1: Release Preparation (`release-prep.yml`)
 
 **1. Validation Phase:**
 - ✅ Validates version format (must be semver: `X.Y.Z`)
@@ -262,25 +276,43 @@ The automated workflow performs these steps:
 - 💾 Commits changes
 - ⬆️ Pushes branch to origin
 
-**3. PR and Merge Phase:**
+**3. PR Creation:**
 - 📬 Creates PR to merge release branch into `main`
-- ⏳ Waits for CI checks to complete (up to 10 minutes)
-- ❌ Fails if CI checks don't pass
-- ⬇️ Squash merges PR once CI passes
-- 🗑️ Deletes release branch
+- 📋 Displays summary with next steps
 
-**4. Tag and Release Phase:**
+**Duration:** ~30 seconds
+
+#### Workflow 2: Release Finalization (`release-finalize.yml`)
+
+**Triggered automatically when release PR is merged to main**
+
+**1. Release Detection:**
+- 🔍 Detects that a `release/vX.Y.Z` branch was merged
+- 📝 Extracts version number from branch name
+- 🏷️ Determines if this is a pre-release (alpha, beta, rc)
+
+**2. Approval Gate:**
+- ⏸️ Pauses for manual approval via GitHub Environment
+- 👤 Requires designated reviewer to approve deployment
+- 🔐 Uses `release` environment protection
+
+**3. Tag and Release Creation:**
+- 📝 Extracts CHANGELOG notes for this version
 - 🔖 Creates git tag `vX.Y.Z`
 - ⬆️ Pushes tag to origin
 - 📦 Creates GitHub Release with CHANGELOG notes
+- ✅ Marks as pre-release if version contains `-`, `alpha`, `beta`, or `rc`
 
-**5. Cleanup on Failure:**
-If the workflow fails, a separate cleanup workflow automatically:
+**Duration:** ~1 minute (after approval)
+
+#### Cleanup on Failure
+
+If the **Release Preparation** workflow fails, a separate cleanup workflow automatically:
 - Closes any open release PRs
 - Deletes orphaned release branches
 - Deletes orphaned tags (if no GitHub release exists)
 
-**Typical Duration:** 2-3 minutes
+**Total Duration:** ~2 minutes + PR review time + approval time
 
 ### Version Numbering
 
@@ -333,23 +365,16 @@ git push origin --delete release/v0.1.0
 # Re-run the Release workflow
 ```
 
-### Problem: PR doesn't auto-merge
+### Problem: No CI checks on release PR
 
-**Symptom:** PR is created but doesn't merge automatically.
+**Symptom:** Release PR shows "0 checks" and no CI workflows run.
 
-**Cause:** CI checks failing or taking too long (>10 minutes).
+**Cause:** This is expected behavior. GitHub prevents workflows triggered by GITHUB_TOKEN from triggering other workflows (security feature).
 
 **Solution:**
-```bash
-# Check PR status
-gh pr view <PR_NUMBER>
+This is **not a problem** - it's by design. The Release Preparation workflow validates that CI passed on the current commit before creating the PR. Since the release PR only contains version/CHANGELOG updates (no code changes), re-running CI is unnecessary.
 
-# Check CI status
-gh pr checks <PR_NUMBER>
-
-# If checks pass but didn't merge, manually merge
-gh pr merge <PR_NUMBER> --squash
-```
+Simply review and merge the PR as usual.
 
 ### Problem: Tag already exists
 
@@ -371,32 +396,53 @@ git push origin --delete v0.1.0
 # Re-run workflow
 ```
 
-### Problem: Workflow stuck at "Waiting for CI checks"
+### Problem: Release Finalization doesn't trigger
 
-**Symptom:** Workflow times out after 10 minutes waiting for PR CI checks.
+**Symptom:** After merging release PR, the Release Finalization workflow doesn't run.
 
-**Cause:** CI workflow not triggering for the PR, or CI taking abnormally long.
+**Cause:** Release branch wasn't named correctly or PR wasn't merged (closed without merge).
 
 **Solution:**
-1. Check if CI workflow started for the PR in GitHub Actions tab
-2. If CI hasn't started, try closing and reopening the PR:
+1. Check if PR was actually merged (not just closed):
    ```bash
-   # Close PR
-   gh pr close <PR_NUMBER>
-
-   # Reopen PR (triggers CI)
-   gh pr reopen <PR_NUMBER>
+   gh pr view <PR_NUMBER> --json merged
    ```
-3. If CI is running but slow, wait for completion or investigate CI logs
 
-### Problem: CI checks fail on release PR
+2. Verify branch name started with `release/`:
+   ```bash
+   gh pr view <PR_NUMBER> --json headRefName
+   ```
 
-**Symptom:** Workflow fails with "CI checks failed or were cancelled"
+3. If both are correct, manually trigger tag creation:
+   ```bash
+   git checkout main
+   git pull origin main
+   git tag -a vX.Y.Z -m "Release vX.Y.Z"
+   git push origin vX.Y.Z
+   gh release create vX.Y.Z --title "vX.Y.Z" --notes "See CHANGELOG.md"
+   ```
 
-**Cause:** Code changes on main don't pass all checks.
+### Problem: Forgot to approve release deployment
+
+**Symptom:** Release Finalization workflow is waiting indefinitely for approval.
+
+**Cause:** You haven't approved the deployment in GitHub Actions.
 
 **Solution:**
-1. Fix the failing checks on main:
+1. Navigate to: [GitHub Actions](https://github.com/johnsosoka/jscom-python-common/actions)
+2. Find the "Release Finalization" workflow run
+3. Click "Review deployments"
+4. Select the `release` environment
+5. Click "Approve and deploy"
+
+### Problem: Release Preparation workflow fails validation
+
+**Symptom:** Release Preparation workflow fails during validation phase.
+
+**Cause:** CI checks haven't passed on the current commit, tag already exists, or invalid version format.
+
+**Solution:**
+1. If CI checks haven't passed, fix the issues on main:
    ```bash
    git checkout main
    git pull

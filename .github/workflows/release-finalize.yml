@@ -1,0 +1,94 @@
+name: Release Finalization
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  detect-release:
+    name: Detect Release PR
+    if: |
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.extract.outputs.version }}
+      is_prerelease: ${{ steps.extract.outputs.is_prerelease }}
+    steps:
+      - name: Extract version from branch name
+        id: extract
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          VERSION=$(echo "$BRANCH" | sed 's/release\/v//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected release version: $VERSION"
+
+          # Check if this is a pre-release (contains -, alpha, beta, rc)
+          if echo "$VERSION" | grep -qE '(-|alpha|beta|rc)'; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            echo "This is a pre-release version"
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+            echo "This is a stable release version"
+          fi
+
+  create-release:
+    name: Create Release
+    needs: detect-release
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Extract CHANGELOG
+        id: changelog
+        run: |
+          VERSION="${{ needs.detect-release.outputs.version }}"
+          # Extract release notes from CHANGELOG for this specific version
+          NOTES=$(awk "/## \[$VERSION\]/,/## \[/{if (!/## \[$VERSION\]/ && !/## \[/) print}" CHANGELOG.md || echo "See CHANGELOG.md for details")
+
+          # If notes are empty, try to extract from version with escaped brackets
+          if [ -z "$NOTES" ] || [ "$NOTES" = "See CHANGELOG.md for details" ]; then
+            NOTES=$(awk "/## \[${VERSION}\]/,/## \[/{if (!/## \[${VERSION}\]/ && !/## \[/) print}" CHANGELOG.md || echo "See CHANGELOG.md for details")
+          fi
+
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ needs.detect-release.outputs.version }}"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.detect-release.outputs.version }}
+          release_name: v${{ needs.detect-release.outputs.version }}
+          body: ${{ steps.changelog.outputs.notes }}
+          draft: false
+          prerelease: ${{ needs.detect-release.outputs.is_prerelease == 'true' }}
+
+      - name: Release finalization summary
+        run: |
+          echo "### ✅ Release Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ needs.detect-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag:** v${{ needs.detect-release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Pre-release:** ${{ needs.detect-release.outputs.is_prerelease }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The GitHub Release has been created successfully." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🔗 [View Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.detect-release.outputs.version }})" >> $GITHUB_STEP_SUMMARY

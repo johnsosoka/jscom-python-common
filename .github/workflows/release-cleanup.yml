@@ -2,7 +2,7 @@ name: Release Cleanup
 
 on:
   workflow_run:
-    workflows: ["Release"]
+    workflows: ["Release Preparation"]
     types: [completed]
 
 jobs:

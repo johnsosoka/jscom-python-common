@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** Release workflow now requires manual approval via GitHub Environments
+- Split release automation into two workflows: preparation and finalization
+- Release finalization now uses GitHub Environment (`release`) with required reviewer approval
+- Removed auto-merge logic from release workflow to prevent timeout issues
+
+### Added
+
+- New `release-finalize.yml` workflow that triggers after release PR merge
+- Automatic detection of release PRs and version extraction from branch names
+- GitHub Environment-based deployment approval for tag and release creation
+- Improved workflow status summaries with clear next-step instructions
+
+### Fixed
+
+- Fixed issue where CI checks never ran on release PRs (github-actions[bot] limitation)
+- Fixed workflow timeout when waiting indefinitely for non-existent CI checks
+- Fixed confusion about manual merge requirements in release process
+
 ## [0.1.1] - 2025-11-03
 
 ## [0.1.0] - 2025-11-02

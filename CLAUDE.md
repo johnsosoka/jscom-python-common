@@ -101,13 +101,19 @@ poetry run pre-commit run --all-files
 
 ### Overview
 
-Releases are fully automated via GitHub Actions. The workflow:
+Releases use a two-stage GitHub Actions workflow with manual approval:
+
+**Stage 1: Release Preparation** (`release-prep.yml`)
 1. Validates prerequisites (version format, CI status, no existing tag)
 2. Creates release branch with version updates
-3. Creates PR and waits for CI checks
-4. Squash merges PR
-5. Creates git tag and GitHub Release
-6. Auto-cleanup on failure
+3. Creates PR and displays next steps
+
+**Stage 2: Release Finalization** (`release-finalize.yml`)
+1. Automatically triggers when release PR is merged
+2. Pauses for manual approval via GitHub Environment
+3. Creates git tag and GitHub Release after approval
+
+**Note:** Auto-cleanup workflow runs on preparation failure.
 
 ### Creating a Release
 
@@ -116,6 +122,7 @@ Releases are fully automated via GitHub Actions. The workflow:
 - [ ] CHANGELOG.md updated under `[Unreleased]`
 - [ ] CI checks passing on main
 - [ ] Version number decided (MAJOR.MINOR.PATCH)
+- [ ] GitHub Environment `release` configured (one-time setup)
 
 **Steps:**
 
@@ -137,17 +144,23 @@ Releases are fully automated via GitHub Actions. The workflow:
    git push origin main
    ```
 
-3. **Trigger workflow:**
-   - Navigate to: [Actions → Release](https://github.com/johnsosoka/jscom-python-common/actions/workflows/release.yml)
+3. **Trigger Release Preparation:**
+   - Navigate to: [Actions → Release Preparation](https://github.com/johnsosoka/jscom-python-common/actions/workflows/release-prep.yml)
    - Click "Run workflow"
    - Enter version (e.g., `0.2.0` - no 'v' prefix)
    - Click "Run workflow"
 
-4. **Monitor:**
-   - Workflow takes 2-3 minutes
-   - Creates PR automatically
-   - Waits for CI checks
-   - Merges and creates release
+4. **Review and merge PR:**
+   - PR will be created automatically (~30 seconds)
+   - Review the version updates
+   - Merge PR (squash merge) - no CI checks expected
+
+5. **Approve deployment:**
+   - Release Finalization workflow triggers automatically
+   - Navigate to the workflow run
+   - Click "Review deployments"
+   - Approve the `release` environment
+   - Tag and release created automatically
 
 ### Version Numbering
 
@@ -175,22 +188,20 @@ Follow [Semantic Versioning](https://semver.org/):
 
 **Common Issues:**
 
-1. **Release branch already exists:**
-   ```bash
-   git push origin --delete release/v0.1.0
-   # Re-run workflow
-   ```
+1. **No CI checks on release PR:**
+   - This is expected (github-actions[bot] limitation)
+   - CI validated before PR creation, safe to merge
 
-2. **CI checks fail on release PR:**
-   - Fix issues on main
-   - Clean up failed release artifacts
-   - Re-run workflow
+2. **Release branch already exists:**
+   - Workflow auto-deletes, but if needed: `git push origin --delete release/v0.1.0`
 
-3. **Tag already exists:**
-   ```bash
-   git push origin --delete v0.1.0
-   # Re-run workflow
-   ```
+3. **Forgot to approve deployment:**
+   - Navigate to Actions → Find "Release Finalization" run
+   - Click "Review deployments" → Approve
+
+4. **Release Finalization doesn't trigger:**
+   - Verify PR was merged (not just closed)
+   - Verify branch name started with `release/`
 
 See [CONTRIBUTING.md - Release Troubleshooting](./CONTRIBUTING.md#release-troubleshooting) for comprehensive guide.
 

@@ -1,4 +1,4 @@
-name: Release
+name: Release Preparation
 
 on:
   workflow_dispatch:
@@ -64,7 +64,7 @@ jobs:
             return 'passed';
 
   release:
-    name: Create Release
+    name: Prepare Release
     needs: validate
     runs-on: ubuntu-latest
     permissions:
@@ -125,7 +125,7 @@ jobs:
           git commit -m "Release v${{ inputs.version }}"
           git push origin "$BRANCH"
 
-      - name: Create and merge release PR
+      - name: Create release PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -137,53 +137,20 @@ jobs:
             --head "$BRANCH")
 
           echo "Created PR: $PR_URL"
-          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+          echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
 
-          # Wait for CI checks to complete
-          echo "Waiting for CI checks to complete..."
-          MAX_ATTEMPTS=60
-          ATTEMPT=0
-          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
-            # Get check status
-            CHECK_STATUS=$(gh pr view "$PR_NUMBER" --json statusCheckRollup --jq '.statusCheckRollup[0].conclusion // "pending"')
-
-            if [ "$CHECK_STATUS" = "SUCCESS" ] || [ "$CHECK_STATUS" = "NEUTRAL" ]; then
-              echo "CI checks passed!"
-              break
-            elif [ "$CHECK_STATUS" = "FAILURE" ] || [ "$CHECK_STATUS" = "CANCELLED" ]; then
-              echo "CI checks failed or were cancelled"
-              exit 1
-            fi
-
-            echo "CI checks still running... (attempt $ATTEMPT/$MAX_ATTEMPTS)"
-            sleep 10
-            ATTEMPT=$((ATTEMPT + 1))
-          done
-
-          if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
-            echo "Timeout waiting for CI checks"
-            exit 1
-          fi
-
-          # Merge using squash (repository setting)
-          echo "Merging PR..."
-          gh pr merge "$PR_NUMBER" --squash --delete-branch
-
-      - name: Checkout main and create tag
+      - name: Release preparation summary
         run: |
-          # Pull the merged changes
-          git checkout main
-          git pull origin main
-          git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
-          git push origin "v${{ inputs.version }}"
-
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ inputs.version }}
-          release_name: v${{ inputs.version }}
-          body: ${{ steps.changelog.outputs.notes }}
-          draft: false
-          prerelease: false
+          echo "### 🎯 Release Preparation Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Release Branch:** release/v${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📋 Next Steps (Manual):" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. **Review the release PR** - Check version updates and CHANGELOG" >> $GITHUB_STEP_SUMMARY
+          echo "2. **Merge the PR** - Squash merge when ready (no CI checks will run - this is expected)" >> $GITHUB_STEP_SUMMARY
+          echo "3. **Approve the release** - The Release Finalization workflow will trigger automatically and wait for your approval" >> $GITHUB_STEP_SUMMARY
+          echo "4. **Tag and release created** - After approval, the tag and GitHub Release will be created automatically" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️ **Note:** CI checks won't run on the release PR (github-actions[bot] limitation). This is expected and safe since CI already passed on the current commit." >> $GITHUB_STEP_SUMMARY
