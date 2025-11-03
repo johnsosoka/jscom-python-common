@@ -1,0 +1,96 @@
+name: Release Cleanup
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+jobs:
+  cleanup-failed-release:
+    name: Clean Up Failed Release
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from workflow inputs
+        id: version
+        run: |
+          # Get the version from the failed workflow run
+          # This is a best-effort extraction
+          VERSION=$(gh run view ${{ github.event.workflow_run.id }} --json displayTitle -q '.displayTitle' | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Found version: $VERSION"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Close open release PR if exists
+        if: steps.version.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BRANCH="release/v$VERSION"
+
+          # Find and close any open PRs from this release branch
+          PR_NUMBER=$(gh pr list --head "$BRANCH" --json number -q '.[0].number' || echo "")
+
+          if [ -n "$PR_NUMBER" ]; then
+            echo "Found open PR #$PR_NUMBER for release branch"
+            gh pr close "$PR_NUMBER" --comment "Auto-closing due to release workflow failure. Please investigate and retry."
+            echo "Closed PR #$PR_NUMBER"
+          else
+            echo "No open PR found for branch $BRANCH"
+          fi
+
+      - name: Delete release branch if exists
+        if: steps.version.outputs.version != ''
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BRANCH="release/v$VERSION"
+
+          # Check if branch exists and delete it
+          if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+            echo "Deleting orphaned release branch: $BRANCH"
+            git push origin --delete "$BRANCH"
+            echo "Branch deleted successfully"
+          else
+            echo "Branch $BRANCH does not exist"
+          fi
+
+      - name: Delete tag if exists (but no release)
+        if: steps.version.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v$VERSION"
+
+          # Check if tag exists
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "Tag $TAG exists"
+
+            # Check if GitHub release exists
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              echo "GitHub release exists for $TAG - NOT deleting tag"
+            else
+              echo "No GitHub release for $TAG - deleting orphaned tag"
+              git push origin --delete "$TAG"
+              echo "Tag deleted successfully"
+            fi
+          else
+            echo "Tag $TAG does not exist"
+          fi
+
+      - name: Summary
+        run: |
+          echo "### Release Cleanup Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Cleaned up artifacts from failed release workflow." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version:** ${{ steps.version.outputs.version || 'Not found' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "You can now re-run the Release workflow safely." >> $GITHUB_STEP_SUMMARY
