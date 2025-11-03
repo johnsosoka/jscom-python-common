@@ -1,0 +1,51 @@
+[tool.poetry]
+name = "jscom-common"
+version = "0.1.0"
+description = "Shared utilities and models for johnsosoka.com Python Lambda functions"
+authors = ["John Sosoka <john@sosoka.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "jscom_common"}]
+repository = "https://github.com/johnsosoka/jscom-python-common"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+boto3 = "^1.28.0"
+pydantic = "^2.0"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+requests = "^2.31.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-cov = "^4.1.0"
+mypy = "^1.8.0"
+ruff = "^0.2.0"
+boto3-stubs = {extras = ["dynamodb", "sqs", "ses"], version = "^1.28.0"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--cov=jscom_common --cov-report=term-missing --cov-report=html"
