@@ -69,6 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -107,17 +108,37 @@ jobs:
           DATE=$(date +%Y-%m-%d)
           sed -i "s/## \[Unreleased\]/## [Unreleased]\n\n## [${{ inputs.version }}] - $DATE/" CHANGELOG.md
 
-      - name: Commit version bump
+      - name: Create release prep branch
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
+          BRANCH="release/v${{ inputs.version }}"
+          git checkout -b "$BRANCH"
           git add pyproject.toml CHANGELOG.md
           git commit -m "Release v${{ inputs.version }}"
+          git push origin "$BRANCH"
 
-      - name: Create and push tag
+      - name: Create and merge release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          BRANCH="release/v${{ inputs.version }}"
+          PR_URL=$(gh pr create \
+            --title "Release v${{ inputs.version }}" \
+            --body "Automated release preparation for v${{ inputs.version }}" \
+            --base main \
+            --head "$BRANCH")
+
+          # Wait for CI checks and auto-merge
+          gh pr merge "$PR_URL" --merge --auto
+
+      - name: Checkout main and create tag
+        run: |
+          # Wait for merge to complete
+          sleep 10
+          git checkout main
+          git pull origin main
           git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
-          git push origin main
           git push origin "v${{ inputs.version }}"
 
       - name: Create GitHub Release
