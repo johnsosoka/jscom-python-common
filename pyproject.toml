@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "jscom-common"
-version = "0.1.0"
+version = "0.1.1"
 description = "Shared utilities and models for johnsosoka.com Python Lambda functions"
 authors = ["John Sosoka <john@sosoka.com>"]
 license = "MIT"
