@@ -64,7 +64,8 @@ def decode_pagination_token(token: str) -> dict[str, Any]:
     """
     try:
         decoded = base64.b64decode(token.encode("utf-8"))
-        return json.loads(decoded.decode("utf-8"))
+        result: dict[str, Any] = json.loads(decoded.decode("utf-8"))
+        return result
     except Exception as e:
         raise ValueError(f"Invalid pagination token: {e}")
 
