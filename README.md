@@ -1,5 +1,9 @@
 # jscom-python-common
 
+[![CI](https://github.com/johnsosoka/jscom-python-common/actions/workflows/ci.yml/badge.svg)](https://github.com/johnsosoka/jscom-python-common/actions/workflows/ci.yml)
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Shared utilities and models for johnsosoka.com Python Lambda functions.
 
 ## Overview
@@ -295,12 +299,41 @@ from jscom_common.auth import validate_jwt_token
 
 ## Development
 
+### Setup
+
+```bash
+# Clone repository
+git clone https://github.com/johnsosoka/jscom-python-common.git
+cd jscom-python-common
+
+# Install dependencies
+poetry install --with dev
+
+# Install pre-commit hooks
+poetry run pre-commit install
+```
+
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality:
+
+```bash
+# Hooks run automatically on git commit
+git commit -m "Your message"
+
+# Run manually on all files
+poetry run pre-commit run --all-files
+```
+
+Hooks include:
+- `ruff format` - Code formatting
+- `ruff check` - Linting with auto-fix
+- `mypy` - Type checking
+- `pytest` - Test suite (fail fast)
+
 ### Running Tests
 
 ```bash
-# Install dev dependencies
-poetry install
-
 # Run all tests
 poetry run pytest
 
@@ -309,6 +342,9 @@ poetry run pytest --cov=jscom_common --cov-report=term-missing
 
 # Run specific test file
 poetry run pytest tests/test_auth/test_cognito.py -v
+
+# Check coverage threshold (80%)
+poetry run pytest --cov=jscom_common --cov-fail-under=80
 ```
 
 ### Code Quality
@@ -321,8 +357,19 @@ poetry run ruff format .
 poetry run ruff check .
 
 # Type checking
-poetry run mypy jscom_common
+poetry run mypy jscom_common --ignore-missing-imports
+
+# Run all checks (what CI runs)
+poetry run pre-commit run --all-files
 ```
+
+### Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed development guidelines, including:
+- Development workflow
+- Code quality standards
+- Pull request process
+- Release process
 
 ## Versioning and Releases
 
@@ -334,21 +381,24 @@ This library follows [Semantic Versioning](https://semver.org/):
 
 ### Creating a Release
 
-```bash
-# Update version in pyproject.toml
-# Update CHANGELOG.md
+Releases are created via GitHub Actions workflow to ensure all checks pass:
 
-# Commit changes
-git add .
-git commit -m "Release v0.2.0"
+1. **Update CHANGELOG.md** - Document changes under `[Unreleased]`
+2. **Commit and push to main**
+3. **Trigger Release Workflow**:
+   - Go to GitHub Actions tab
+   - Select "Release" workflow
+   - Click "Run workflow"
+   - Enter version number (e.g., `0.2.0`)
+   - Click "Run workflow"
 
-# Tag release
-git tag -a v0.2.0 -m "Release v0.2.0: Add error handling decorators"
+The workflow will:
+- Validate version format and CI checks
+- Update `pyproject.toml` and `CHANGELOG.md`
+- Create and push git tag
+- Create GitHub release
 
-# Push tags
-git push origin v0.2.0
-git push origin main
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed release process.
 
 ### Using Specific Versions
 

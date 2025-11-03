@@ -3,6 +3,14 @@ DynamoDB helper utilities for JSCOM services.
 
 Provides utilities for pagination token encoding/decoding and Pydantic model conversions
 for working with DynamoDB items.
+
+Module Organization Note:
+    This module currently combines pagination and Pydantic utilities (~120 lines).
+    Consider splitting into separate modules when file exceeds ~300 lines:
+    - dynamodb/pagination.py (encode/decode tokens, query helpers)
+    - dynamodb/pydantic.py (model conversion utilities)
+    - dynamodb/batch.py (batch operations, transact writes)
+    - dynamodb/streams.py (DynamoDB streams processing)
 """
 
 import base64
