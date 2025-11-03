@@ -3,6 +3,12 @@
 [![CI](https://github.com/johnsosoka/jscom-python-common/actions/workflows/ci.yml/badge.svg)](https://github.com/johnsosoka/jscom-python-common/actions/workflows/ci.yml)
 [![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Type checked: mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](https://mypy-lang.org/)
+[![Coverage](https://img.shields.io/badge/coverage-80%25+-brightgreen.svg)](https://github.com/johnsosoka/jscom-python-common)
+[![Pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
+[![Maintenance](https://img.shields.io/badge/maintained-yes-brightgreen.svg)](https://github.com/johnsosoka/jscom-python-common/graphs/commit-activity)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 Shared utilities and models for johnsosoka.com Python Lambda functions.
 
