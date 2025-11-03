@@ -113,6 +113,13 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           BRANCH="release/v${{ inputs.version }}"
+
+          # Check if release branch already exists and delete it
+          if git ls-remote --heads origin "$BRANCH" | grep -q "$BRANCH"; then
+            echo "Release branch $BRANCH already exists. Deleting..."
+            git push origin --delete "$BRANCH"
+          fi
+
           git checkout -b "$BRANCH"
           git add pyproject.toml CHANGELOG.md
           git commit -m "Release v${{ inputs.version }}"
@@ -129,13 +136,42 @@ jobs:
             --base main \
             --head "$BRANCH")
 
-          # Wait for CI checks and auto-merge
-          gh pr merge "$PR_URL" --merge --auto
+          echo "Created PR: $PR_URL"
+          PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+
+          # Wait for CI checks to complete
+          echo "Waiting for CI checks to complete..."
+          MAX_ATTEMPTS=60
+          ATTEMPT=0
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            # Get check status
+            CHECK_STATUS=$(gh pr view "$PR_NUMBER" --json statusCheckRollup --jq '.statusCheckRollup[0].conclusion // "pending"')
+
+            if [ "$CHECK_STATUS" = "SUCCESS" ] || [ "$CHECK_STATUS" = "NEUTRAL" ]; then
+              echo "CI checks passed!"
+              break
+            elif [ "$CHECK_STATUS" = "FAILURE" ] || [ "$CHECK_STATUS" = "CANCELLED" ]; then
+              echo "CI checks failed or were cancelled"
+              exit 1
+            fi
+
+            echo "CI checks still running... (attempt $ATTEMPT/$MAX_ATTEMPTS)"
+            sleep 10
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+
+          if [ $ATTEMPT -ge $MAX_ATTEMPTS ]; then
+            echo "Timeout waiting for CI checks"
+            exit 1
+          fi
+
+          # Merge using squash (repository setting)
+          echo "Merging PR..."
+          gh pr merge "$PR_NUMBER" --squash --delete-branch
 
       - name: Checkout main and create tag
         run: |
-          # Wait for merge to complete
-          sleep 10
+          # Pull the merged changes
           git checkout main
           git pull origin main
           git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"

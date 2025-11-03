@@ -453,7 +453,205 @@ The workflow will:
 - Create and push git tag
 - Create GitHub release
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed release process.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed release process and troubleshooting.
+
+## Workflow Diagrams
+
+### Release & Tagging Flow
+
+This diagram shows the automated release process via GitHub Actions:
+
+```mermaid
+graph TD
+    A[Developer: Update CHANGELOG.md] --> B[Commit & Push to main]
+    B --> C[GitHub Actions: Trigger Release Workflow]
+    C --> D{Validate Prerequisites}
+    D --> |Version Format| E[Check Version Format]
+    D --> |Tag Exists?| F[Check Tag Doesn't Exist]
+    D --> |CI Status| G[Verify CI Checks Passed]
+    E --> H{All Valid?}
+    F --> H
+    G --> H
+    H --> |No| I[Workflow Fails]
+    H --> |Yes| J[Update pyproject.toml Version]
+    J --> K[Update CHANGELOG.md Release Date]
+    K --> L{Release Branch Exists?}
+    L --> |Yes| M[Delete Existing Branch]
+    L --> |No| N[Create release/vX.Y.Z Branch]
+    M --> N
+    N --> O[Commit Changes]
+    O --> P[Push Branch to Origin]
+    P --> Q[Create PR to main]
+    Q --> R[Wait for CI Checks]
+    R --> S{CI Checks Pass?}
+    S --> |No| T[Workflow Fails]
+    S --> |Yes| U[Squash Merge PR]
+    U --> V[Delete Release Branch]
+    V --> W[Checkout main & Pull]
+    W --> X[Create vX.Y.Z Tag]
+    X --> Y[Push Tag to Origin]
+    Y --> Z[Create GitHub Release]
+    Z --> AA[Release Complete!]
+
+    T --> AB[Cleanup Workflow Triggers]
+    AB --> AC[Close PR if Open]
+    AC --> AD[Delete Release Branch]
+    AD --> AE[Delete Orphaned Tag if Exists]
+    AE --> AF[Ready for Retry]
+
+    style A fill:#e1f5ff
+    style AA fill:#90EE90
+    style T fill:#FFB6C1
+    style I fill:#FFB6C1
+    style AF fill:#FFD700
+```
+
+**Key Points:**
+- Fully automated via GitHub Actions workflow dispatch
+- Validates CI checks before creating release
+- Auto-cleans up existing release branches
+- Waits for PR CI checks before merging
+- Uses squash merge (repository requirement)
+- Auto-cleanup on failure via separate workflow
+
+### CI/CD Workflow
+
+The CI workflow runs on every PR and push to main:
+
+```mermaid
+graph LR
+    A[PR or Push to main] --> B[Trigger CI Workflow]
+    B --> C[Lint Job]
+    B --> D[Type Check Job]
+    B --> E[Test Suite Job]
+
+    C --> F[Install ruff]
+    F --> G[Run ruff format --check]
+    G --> H[Run ruff check]
+
+    D --> I[Install Poetry]
+    I --> J[Install Dependencies]
+    J --> K[Run mypy]
+
+    E --> L[Install Poetry]
+    L --> M[Install Dependencies]
+    M --> N[Run pytest with coverage]
+    N --> O[Upload Coverage Report]
+    O --> P[Check 80% Threshold]
+
+    H --> Q{All Jobs Pass?}
+    K --> Q
+    P --> Q
+
+    Q --> |Yes| R[All Checks Passed Gate]
+    Q --> |No| S[Workflow Fails]
+
+    R --> T[PR Can Merge / Release Can Proceed]
+
+    style A fill:#e1f5ff
+    style T fill:#90EE90
+    style S fill:#FFB6C1
+    style Q fill:#FFD700
+```
+
+**Key Features:**
+- Parallel execution of lint, type check, and tests
+- 80% code coverage requirement
+- All checks must pass for PR merge
+- Fast feedback (~45-48 seconds)
+
+### Installation & Integration Flow
+
+How consuming projects integrate this library:
+
+```mermaid
+graph TD
+    A[Consumer Project] --> B[Update requirements.txt]
+    B --> C["git+https://github.com/johnsosoka/jscom-python-common.git@vX.Y.Z"]
+    C --> D[Install Dependencies]
+    D --> E[Import Modules]
+
+    E --> F[jscom_common.auth]
+    E --> G[jscom_common.models]
+    E --> H[jscom_common.dynamodb]
+
+    F --> I[validate_jwt_token]
+    F --> J[get_jwks]
+
+    G --> K[ApiResponse]
+    G --> L[PaginatedResponse]
+
+    H --> M[encode_pagination_token]
+    H --> N[decode_pagination_token]
+    H --> O[pydantic_to_dynamodb]
+    H --> P[dynamodb_to_pydantic]
+
+    I --> Q[Lambda Function]
+    K --> Q
+    M --> Q
+
+    Q --> R[Deploy to AWS]
+    R --> S[Test in Staging]
+    S --> T{Tests Pass?}
+    T --> |Yes| U[Deploy to Production]
+    T --> |No| V[Rollback or Fix]
+
+    style A fill:#e1f5ff
+    style U fill:#90EE90
+    style V fill:#FFB6C1
+```
+
+**Integration Steps:**
+1. Pin specific version in requirements.txt
+2. Update imports in Lambda functions
+3. Remove duplicated code
+4. Test in staging environment
+5. Deploy to production
+
+### Development Workflow
+
+Local development and contribution process:
+
+```mermaid
+graph TD
+    A[Clone Repository] --> B[Install Poetry Dependencies]
+    B --> C[Install Pre-commit Hooks]
+    C --> D[Create Feature Branch]
+    D --> E[Write Code]
+    E --> F[Write Tests]
+    F --> G[Run Pre-commit Hooks Locally]
+    G --> H{Hooks Pass?}
+    H --> |No| I[Fix Issues]
+    I --> E
+    H --> |Yes| J[Commit Changes]
+    J --> K[Push to GitHub]
+    K --> L[Create Pull Request]
+    L --> M[CI Workflow Triggers]
+    M --> N[Lint + Type Check + Tests]
+    N --> O{CI Passes?}
+    O --> |No| P[Fix Issues Locally]
+    P --> E
+    O --> |Yes| Q[Code Review]
+    Q --> R{Approved?}
+    R --> |No| S[Address Feedback]
+    S --> E
+    R --> |Yes| T[Squash Merge to main]
+    T --> U[Delete Feature Branch]
+    U --> V[Ready for Release]
+
+    style A fill:#e1f5ff
+    style V fill:#90EE90
+    style P fill:#FFB6C1
+```
+
+**Pre-commit Hooks Include:**
+- ruff format (auto-formatting)
+- ruff check (linting with auto-fix)
+- mypy (type checking)
+- pytest (test suite)
+- File checks (trailing whitespace, YAML/TOML validation)
+
+**Important:** Always run `poetry run pre-commit install` after cloning!
 
 ### Using Specific Versions
 
