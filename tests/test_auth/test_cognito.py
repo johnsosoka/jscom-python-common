@@ -1,6 +1,6 @@
 """Tests for Cognito JWT validation utilities."""
 
-import json
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -57,7 +57,7 @@ class TestValidateJWTToken:
 
     def test_missing_authorization_header(self) -> None:
         """Test that missing Authorization header raises UnauthorizedError."""
-        event = {"headers": {}}
+        event: dict[str, Any] = {"headers": {}}
 
         with pytest.raises(UnauthorizedError, match="Missing Authorization header"):
             validate_jwt_token(event)
@@ -96,9 +96,7 @@ class TestValidateJWTToken:
         mock_claims = {"cognito:username": "testuser", "sub": "user-123", "email": "test@example.com"}
         mock_decode.return_value = mock_claims
 
-        result = validate_jwt_token(
-            event, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client"
-        )
+        result = validate_jwt_token(event, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client")
 
         assert result == mock_claims
         mock_decode.assert_called_once()
@@ -119,9 +117,7 @@ class TestValidateJWTToken:
         mock_get_header.return_value = {"kid": "test-kid"}
 
         with pytest.raises(UnauthorizedError, match="Invalid token"):
-            validate_jwt_token(
-                event, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client"
-            )
+            validate_jwt_token(event, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client")
 
     @patch("jscom_common.auth.cognito.get_jwks")
     @patch("jscom_common.auth.cognito.jwt.get_unverified_header")
@@ -145,9 +141,7 @@ class TestValidateJWTToken:
         mock_decode.side_effect = JWTError("Token expired")
 
         with pytest.raises(UnauthorizedError, match="Invalid or expired token"):
-            validate_jwt_token(
-                event, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client"
-            )
+            validate_jwt_token(event, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client")
 
     def test_case_insensitive_authorization_header(self) -> None:
         """Test that authorization header is case-insensitive."""
@@ -155,17 +149,13 @@ class TestValidateJWTToken:
         event_lower = {"headers": {"authorization": "invalid"}}
 
         with pytest.raises(UnauthorizedError):
-            validate_jwt_token(
-                event_lower, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client"
-            )
+            validate_jwt_token(event_lower, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client")
 
         # Uppercase "Authorization"
         event_upper = {"headers": {"Authorization": "invalid"}}
 
         with pytest.raises(UnauthorizedError):
-            validate_jwt_token(
-                event_upper, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client"
-            )
+            validate_jwt_token(event_upper, region="us-west-2", user_pool_id="test-pool", app_client_id="test-client")
 
     def test_missing_required_parameters(self) -> None:
         """Test that missing required parameters raise ValueError."""

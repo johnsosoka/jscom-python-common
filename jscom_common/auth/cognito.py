@@ -41,10 +41,7 @@ def get_jwks(
         if not cognito_user_pool_id:
             raise ValueError("COGNITO_USER_POOL_ID environment variable or user_pool_id parameter is required")
 
-        jwks_url = (
-            f"https://cognito-idp.{cognito_region}.amazonaws.com/"
-            f"{cognito_user_pool_id}/.well-known/jwks.json"
-        )
+        jwks_url = f"https://cognito-idp.{cognito_region}.amazonaws.com/{cognito_user_pool_id}/.well-known/jwks.json"
         logger.info(f"Fetching JWKS from {jwks_url}")
         response = requests.get(jwks_url, timeout=10)
         response.raise_for_status()
@@ -120,7 +117,7 @@ def validate_jwt_token(
             raise UnauthorizedError("Invalid token")
 
         # Verify and decode the token
-        claims = jwt.decode(
+        claims_result: dict[str, Any] = jwt.decode(
             token,
             key,
             algorithms=["RS256"],
@@ -128,9 +125,12 @@ def validate_jwt_token(
             issuer=f"https://cognito-idp.{cognito_region}.amazonaws.com/{cognito_user_pool_id}",
         )
 
-        logger.info(f"Token validated for user: {claims.get('cognito:username')}")
-        return claims
+        logger.info(f"Token validated for user: {claims_result.get('cognito:username')}")
+        return claims_result
 
+    except UnauthorizedError:
+        # Re-raise UnauthorizedError without modification
+        raise
     except JWTError as e:
         logger.warning(f"JWT validation failed: {e}")
         raise UnauthorizedError("Invalid or expired token")

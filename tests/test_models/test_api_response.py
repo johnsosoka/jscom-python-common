@@ -1,6 +1,5 @@
 """Tests for API response models."""
 
-import pytest
 from pydantic import BaseModel
 
 from jscom_common.models import ApiResponse, PaginatedResponse

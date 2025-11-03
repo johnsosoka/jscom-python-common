@@ -55,18 +55,52 @@ Write clean, well-documented code following these principles:
 
 ### 3. Run Pre-commit Hooks
 
-Pre-commit hooks run automatically before each commit:
+**⚠️ CRITICAL:** Always run pre-commit hooks before pushing to catch issues early!
+
+Pre-commit hooks run automatically before each commit (if installed):
 
 ```bash
-# Manually run all hooks
-poetry run pre-commit run --all-files
+# First time only: Install hooks
+poetry run pre-commit install
+
+# Verify installation
+ls -la .git/hooks/pre-commit  # File should exist
+
+# Hooks now run automatically
+git commit -m "Your message"  # Hooks run here
 ```
 
-Hooks include:
-- `ruff format` - Code formatting
-- `ruff check` - Linting
-- `mypy` - Type checking
-- `pytest` - Test suite
+**Best Practice - Run before pushing:**
+```bash
+# Always run this before creating a PR
+poetry run pre-commit run --all-files
+
+# If any checks fail:
+# 1. Review the failures
+# 2. Fix the issues (many auto-fix)
+# 3. Stage and commit the fixes
+git add .
+git commit -m "Fix pre-commit issues"
+```
+
+**What the hooks check:**
+- ✅ `ruff format` - Code formatting (auto-fix)
+- ✅ `ruff check` - Linting with auto-fix
+- ✅ `mypy` - Type checking (must fix manually)
+- ✅ `pytest` - Test suite (fail fast on first error)
+- ✅ YAML/TOML validation, trailing whitespace, large files
+
+**If CI fails but local passes:**
+```bash
+# Ensure you're running the same versions
+poetry update
+
+# Run exactly what CI runs
+poetry run ruff format --check .
+poetry run ruff check .
+poetry run mypy jscom_common --ignore-missing-imports
+poetry run pytest --cov=jscom_common --cov-fail-under=80
+```
 
 ### 4. Write Tests
 

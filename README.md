@@ -321,21 +321,41 @@ poetry run pre-commit install
 
 ### Pre-commit Hooks
 
-This project uses pre-commit hooks to ensure code quality:
+**⚠️ IMPORTANT:** Pre-commit hooks must be installed to run automatically. Without installation, code may fail CI checks.
 
 ```bash
-# Hooks run automatically on git commit
-git commit -m "Your message"
+# One-time setup: Install hooks (required!)
+poetry run pre-commit install
 
-# Run manually on all files
-poetry run pre-commit run --all-files
+# Verify hooks are installed
+git config --get core.hooksPath  # Should show .git/hooks
+
+# Hooks now run automatically on every commit
+git commit -m "Your message"
 ```
 
-Hooks include:
-- `ruff format` - Code formatting
-- `ruff check` - Linting with auto-fix
-- `mypy` - Type checking
-- `pytest` - Test suite (fail fast)
+**Before Pushing to GitHub:**
+```bash
+# Always run this before pushing to catch issues early
+poetry run pre-commit run --all-files
+
+# If any checks fail, fix them and commit
+git add .
+git commit -m "Fix pre-commit issues"
+```
+
+**Hooks include:**
+- ✅ `ruff format` - Code formatting (auto-fix)
+- ✅ `ruff check` - Linting with auto-fix
+- ✅ `mypy` - Type checking
+- ✅ `pytest` - Test suite (fail fast)
+- ✅ File checks (trailing whitespace, YAML, TOML validation)
+
+**Bypassing hooks (not recommended):**
+```bash
+# Only use in emergencies (will fail CI)
+git commit -m "Emergency fix" --no-verify
+```
 
 ### Running Tests
 
@@ -367,6 +387,35 @@ poetry run mypy jscom_common --ignore-missing-imports
 
 # Run all checks (what CI runs)
 poetry run pre-commit run --all-files
+```
+
+### Troubleshooting Pre-commit Hooks
+
+**Hooks not running on commit?**
+```bash
+# Check if hooks are installed
+ls -la .git/hooks/pre-commit
+
+# Reinstall if missing
+poetry run pre-commit install
+```
+
+**CI failing but local checks pass?**
+```bash
+# Run exactly what CI runs
+poetry run ruff format --check .
+poetry run ruff check .
+poetry run mypy jscom_common --ignore-missing-imports
+poetry run pytest --cov=jscom_common --cov-fail-under=80
+```
+
+**Pytest not found in pre-commit?**
+```bash
+# Ensure using poetry run
+poetry run pre-commit run --all-files
+
+# Check poetry environment
+poetry env info
 ```
 
 ### Contributing
